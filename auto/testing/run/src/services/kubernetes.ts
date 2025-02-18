@@ -1,46 +1,193 @@
 import { runCommand } from './shell';
+import { logInfo, logError, logDebug } from '../utils/logger';
+import path from 'path';
+import fs from 'fs/promises';
 
-export type typeAction = "create" | "remove";
+export type TypeAction = 'create' | 'remove';
 
+interface KubernetesResource {
+    name: string;
+    path: string;
+    type: 'deployment' | 'service' | 'configmap';
+    namespace?: string;
+}
 
-export const deployNodes = async (type: typeAction) => {
+interface DeploymentResult {
+    resource: string;
+    success: boolean;
+    action: string;
+    error?: Error;
+    output?: string;
+    timestamp: Date;
+}
+
+// Configuration
+const KUBERNETES_RESOURCES: KubernetesResource[] = [
+    {
+        name: 'seed-node-deployment',
+        path: '../../../../../seed/seed-node-deployment.yaml',
+        type: 'deployment'
+    },
+    {
+        name: 'seed-node-service',
+        path: '../../../../../seed/seed-node-service.yaml',
+        type: 'service'
+    },
+    {
+        name: 'validator-node-deployment',
+        path: '../../../../../validator/validator-node-deployment.yaml',
+        type: 'deployment'
+    },
+    {
+        name: 'validator-node-service',
+        path: '../../../../../validator/validator-node-service.yaml',
+        type: 'service'
+    },
+    {
+        name: 'redis-configmap',
+        path: '../../../../../redis/redis-configmap.yaml',
+        type: 'configmap'
+    },
+    {
+        name: 'redis-service',
+        path: '../../../../../redis/redis-service.yaml',
+        type: 'service'
+    }
+];
+
+// Helper functions
+async function validateKubernetesConnection(): Promise<boolean> {
     try {
-        console.log('Desplegando nodos...');
+        await runCommand('kubectl cluster-info');
+        return true;
+    } catch (error) {
+        logError('Failed to connect to Kubernetes cluster', error instanceof Error ? error : undefined);
+        return false;
+    }
+}
 
-        if (type !== 'create' && type !== 'remove') throw new Error('type is incorrect')
+async function validateYamlFile(filePath: string): Promise<boolean> {
+    try {
+        const normalizedPath = path.resolve(__dirname, filePath);
+        await fs.access(normalizedPath);
+        return true;
+    } catch {
+        return false;
+    }
+}
 
-        // Rutas de los archivos YAML del nodo semilla
-        const seedNodeDeploymentPath = '../../../../../seed/seed-node-deployment.yaml';
-        const seedNodeServicePath = '../../../../../seed/seed-node-service.yaml'
+async function validateResources(): Promise<boolean> {
+    for (const resource of KUBERNETES_RESOURCES) {
+        if (!await validateYamlFile(resource.path)) {
+            logError(`YAML file not found: ${resource.path}`);
+            return false;
+        }
+    }
+    return true;
+}
 
-        // Rutas de los archivos YAML del nodo validador
-        const validatorNodeDeploymentPath = '../../../../../validator/validator-node-deployment.yaml';
-        const validatorNodeServicePath = '../../../../../validator/validator-node-service.yaml';
+// Main deployment function
+export const deployNodes = async (type: TypeAction): Promise<DeploymentResult[]> => {
+    const results: DeploymentResult[] = [];
+    const startTime = Date.now();
 
-        // Rutas de los archivos YAML de Redis
-        const redisConfigMapPath = '../../../../../redis/redis-configmap.yaml';
-        const redisServicePath = '../../../../../redis/redis-service.yaml';
+    try {
+        logInfo(`Starting ${type} operation for Kubernetes resources`);
 
-        // Determinar la acción basada en el tipo
+        if (type !== 'create' && type !== 'remove') {
+            throw new Error('Invalid action type. Must be either "create" or "remove"');
+        }
+
+        if (!await validateKubernetesConnection()) {
+            throw new Error('Cannot connect to Kubernetes cluster');
+        }
+
+        if (!await validateResources()) {
+            throw new Error('One or more resource files are missing');
+        }
+
         const action = type === 'create' ? 'apply' : 'delete';
 
-        // Aplicamos los archivos de deployment y service de Kubernetes
+        for (const resource of KUBERNETES_RESOURCES) {
+            const normalizedPath = path.resolve(__dirname, resource.path);
 
-        // Seed Node
-        await runCommand(`kubectl ${action} -f ${seedNodeDeploymentPath}`);
-        await runCommand(`kubectl ${action} -f ${seedNodeServicePath}`);
+            try {
+                logDebug(`${action.charAt(0).toUpperCase() + action.slice(1)}ing ${resource.type}: ${resource.name}`, {
+                    path: normalizedPath,
+                    namespace: resource.namespace || 'default'
+                });
 
-        // Validator Node
-        await runCommand(`kubectl ${action} -f ${validatorNodeDeploymentPath}`);
-        await runCommand(`kubectl ${action} -f ${validatorNodeServicePath}`);
+                let command = `kubectl ${action} -f "${normalizedPath}"`;
+                if (resource.namespace) {
+                    command += ` -n ${resource.namespace}`;
+                }
 
-        // Redis Service in Red
-        await runCommand(`kubectl ${action} -f ${redisConfigMapPath}`);
-        await runCommand(`kubectl ${action} -f ${redisServicePath}`);
+                const { stdout, stderr } = await runCommand(command);
 
-        console.log('Despliegue de nodos realizado exitosamente.');
+                results.push({
+                    resource: resource.name,
+                    success: true,
+                    action,
+                    output: stdout,
+                    timestamp: new Date()
+                });
+
+                logInfo(`Successfully ${action}d ${resource.type}: ${resource.name}`);
+            } catch (error) {
+                logError(`Failed to ${action} ${resource.type}: ${resource.name}`,
+                    error instanceof Error ? error : undefined,
+                    { path: normalizedPath }
+                );
+
+                results.push({
+                    resource: resource.name,
+                    success: false,
+                    action,
+                    error: error instanceof Error ? error : new Error('Unknown error'),
+                    timestamp: new Date()
+                });
+
+                if (type === 'create') {
+                    throw error;
+                }
+            }
+        }
+
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+
+        logInfo(`${type.charAt(0).toUpperCase() + type.slice(1)} operation completed`, {
+            duration: `${duration}ms`,
+            successful: results.filter(r => r.success).length,
+            failed: results.filter(r => !r.success).length
+        });
+
+        return results;
     } catch (error) {
-        console.error('Error al desplegar los nodos:', error);
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+
+        logError(`Fatal error during ${type} operation`,
+            error instanceof Error ? error : undefined,
+            { duration: `${duration}ms` }
+        );
+
+        if (type === 'create' && results.some(r => r.success)) {
+            logInfo('Attempting to clean up successfully deployed resources...');
+            try {
+                await deployNodes('remove');
+                logInfo('Cleanup completed successfully');
+            } catch (cleanupError) {
+                logError('Failed to clean up resources', cleanupError instanceof Error ? cleanupError : undefined);
+            }
+        }
+
         throw error;
     }
+};
+
+export const kubernetesUtils = {
+    validateKubernetesConnection,
+    validateYamlFile,
+    validateResources
 };

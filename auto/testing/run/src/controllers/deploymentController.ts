@@ -1,7 +1,7 @@
-import { createDockerImages } from '../services/docker.js';
-import { deployNodes, typeAction } from '../services/kubernetes.js';
+import { createDockerImages } from '../services/docker';
+import { deployNodes, TypeAction } from '../services/kubernetes';
 
-export const deployChain = async (type: typeAction) => {
+export const AdmindeployChain = async (type: TypeAction) => {
   try {
     if (type !== 'create' && type !== 'remove') throw new Error('type is incorrect');
 

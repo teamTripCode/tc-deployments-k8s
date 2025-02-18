@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seed-node
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seed-node
+  template:
+    metadata:
+      labels:
+        app: seed-node
+    spec:
+      containers:
+        - name: tc-seed-node
+          image: seed-node-tripcode:latest
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8081
+              name: ws
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: HTTP_PORT
+              value: "8080"
+            - name: WS_PORT
+              value: "8081"
+            - name: SEED_NODES
+              value: ""
+            - name: REDIS_HOST
+              value: "localhost"
+            - name: REDIS_PORT
+              value: "6379"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+        - name: redis-seed
+          image: redis:alpine
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: redis-config
+              mountPath: /usr/local/etc/redis/redis.conf
+              subPath: redis.conf
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+      volumes:
+        - name: redis-config
+          configMap:
+            name: redis-config

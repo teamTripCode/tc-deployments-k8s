@@ -68,7 +68,7 @@ export const mainMenu = async (): Promise<void> => {
                     await openStatusPage();
                 } catch (error) {
                     logWarn('No se pudo abrir la página de estado automáticamente');
-                    logInfo(`Por favor, abra manualmente: http://localhost:${port}/status/pods`);
+                    logInfo(`Por favor, abra manualmente: http://localhost:${port}/api/status/pods`);
                 }
                 break;
 

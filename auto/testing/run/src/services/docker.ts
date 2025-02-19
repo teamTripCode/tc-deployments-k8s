@@ -68,7 +68,7 @@ export const ManageDockerImages = async (
             throw new Error("Docker daemon is not running");
         }
 
-        const action = type === 'create' ? 'creation' : 'removal';
+        const action = type === 'create' ? 'create' : 'remove';
         logInfo(`Starting Docker image ${action} for ${images.length} images`);
 
         // Process each image

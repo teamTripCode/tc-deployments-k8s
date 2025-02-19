@@ -35,5 +35,15 @@ export interface DeploymentResult {
     timestamp: Date;
 }
 
+export interface ClusterConfig {
+  name: string;
+  role: 'seed' | 'validator';
+  resources: {
+    cpu: string;
+    memory: string;
+  };
+  nodes: number;
+}
+
 export type TypeAction = 'create' | 'remove';
 export type OSType = 'linux' | 'windows';

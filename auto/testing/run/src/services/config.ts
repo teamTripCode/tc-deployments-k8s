@@ -1,4 +1,4 @@
-import { DockerImage, KubernetesResource } from "./types";
+import { ClusterConfig, DockerImage, KubernetesResource } from "./types";
 
 // Configuration
 export const KUBERNETES_RESOURCES: KubernetesResource[] = [
@@ -32,6 +32,28 @@ export const KUBERNETES_RESOURCES: KubernetesResource[] = [
         path: '../../../../../redis/redis-service.yaml',
         type: 'service'
     }
+];
+
+// Definición de clusters predeterminados
+export const DEFAULT_CLUSTERS: ClusterConfig[] = [
+  {
+    name: 'seed-cluster',
+    role: 'seed',
+    resources: {
+      cpu: '1',
+      memory: '2Gi'
+    },
+    nodes: 1
+  },
+  {
+    name: 'validator-cluster',
+    role: 'validator',
+    resources: {
+      cpu: '2',
+      memory: '4Gi'
+    },
+    nodes: 3
+  }
 ];
 
 export const PathsDockers: DockerImage[] = [

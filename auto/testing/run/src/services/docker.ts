@@ -1,131 +1,163 @@
 import { runCommand } from "./shell";
 import { logInfo, logError, logDebug } from "../utils/logger";
-import path from "path";
+import { BuildResult, DockerImage, SystemType, TypeAction } from "./types";
+import { PathsDockers } from "./config";
 
-// Interface for Docker image configuration
-interface DockerImage {
-    name: string;
-    path: string;
-    tag?: string;
-    buildArgs?: Record<string, string>;
-    dockerfile?: string;
-}
+// Helper to process Windows paths correctly
+const processWindowsPath = (windowsPath: string): string => {
+    // Replace single backslashes with double backslashes for Windows paths
+    // This ensures they are properly escaped in strings
+    return windowsPath.replace(/\\/g, '\\\\');
+};
 
-// Interface for build result
-interface BuildResult {
-    imageName: string;
-    success: boolean;
-    output?: string;
-    error?: Error;
-    buildTime?: number;
-}
-
-// Helper to validate path exists
-const validatePath = async (imagePath: string): Promise<boolean> => {
+// Helper to validate path exists based on OS
+const validatePath = async (imagePath: string, system: SystemType): Promise<boolean> => {
     try {
-        await runCommand(`test -d "${imagePath}" || exit 1`);
+        let pathToCheck = imagePath;
+        
+        // Process Windows paths properly
+        if (system === 'windows') {
+            pathToCheck = processWindowsPath(imagePath);
+        }
+        
+        if (system === 'linux') {
+            await runCommand(`test -d "${pathToCheck}" || exit 1`);
+        } else {
+            // Windows command to check if directory exists
+            // Use CMD syntax with escaped quotes
+            await runCommand(`if not exist "${pathToCheck}" exit 1`);
+        }
         return true;
-    } catch {
+    } catch (error) {
+        logError(`Path validation failed for ${imagePath}`, error instanceof Error ? error : undefined);
         return false;
     }
 };
 
 // Helper to check if Docker is running
-const checkDockerDaemon = async (): Promise<boolean> => {
+const checkDockerDaemon = async (system: SystemType): Promise<boolean> => {
     try {
-        await runCommand("docker info");
+        if (system === 'linux') {
+            await runCommand("systemctl is-active docker");
+        } else {
+            // Windows command to check Docker service
+            await runCommand("docker info");
+        }
         return true;
     } catch {
         return false;
     }
 };
 
-// Helper to normalize path
-const normalizePath = (imagePath: string): string => {
-    return path.resolve(__dirname, imagePath);
-};
-
-// Main function to create Docker images
-export const createDockerImages = async (
+// Main function to manage Docker images
+export const ManageDockerImages = async (
+    type: TypeAction,
     customImages?: DockerImage[]
 ): Promise<BuildResult[]> => {
     try {
-        // Check if Docker daemon is running
-        if (!(await checkDockerDaemon())) {
+        const defaultImages: DockerImage[] = PathsDockers;
+        const images = customImages || defaultImages;
+
+        // Validate at least one image exists
+        if (images.length === 0) {
+            throw new Error("No images provided");
+        }
+
+        // Check if Docker daemon is running based on first image's system type
+        if (!(await checkDockerDaemon(images[0].system))) {
             throw new Error("Docker daemon is not running");
         }
 
-        // Default images configuration
-        const defaultImages: DockerImage[] = [
-            {
-                name: "seed-node-tripcode",
-                path: "../../../../../../seed-node-tripcode",
-            },
-            {
-                name: "validator-node-tripcode",
-                path: "../../../../../../validator-node-tripcode",
-            },
-        ];
-
-        // Use custom images if provided, otherwise use defaults
-        const images = customImages || defaultImages;
-
-        logInfo(`Starting Docker image creation for ${images.length} images`);
+        const action = type === 'create' ? 'creation' : 'removal';
+        logInfo(`Starting Docker image ${action} for ${images.length} images`);
 
         // Process each image
-        const buildPromises = images.map(async (image): Promise<BuildResult> => {
+        const operationPromises = images.map(async (image): Promise<BuildResult> => {
             const startTime = Date.now();
-            const normalizedPath = normalizePath(image.path);
 
             try {
-                // Validate path exists
-                if (!(await validatePath(normalizedPath))) {
-                    throw new Error(`Invalid path: ${normalizedPath}`);
-                }
+                if (type === 'create') {
+                    // Validate path exists for creation
+                    if (!(await validatePath(image.path, image.system))) {
+                        throw new Error(`Invalid path: ${image.path}`);
+                    }
 
-                logDebug(`Building image ${image.name}`, {
-                    path: normalizedPath,
-                    tag: image.tag || "latest",
-                    hasCustomDockerfile: !!image.dockerfile,
-                });
-
-                // Construct build command
-                let buildCommand = `docker build -t ${image.name}:${image.tag || "latest"}`;
-
-                // Add build arguments if specified
-                if (image.buildArgs) {
-                    Object.entries(image.buildArgs).forEach(([key, value]) => {
-                        buildCommand += ` --build-arg ${key}=${value}`;
+                    logDebug(`Building image ${image.name}`, {
+                        path: image.path,
+                        tag: image.tag || "latest",
+                        hasCustomDockerfile: !!image.dockerfile,
+                        system: image.system
                     });
+
+                    // Construct build command
+                    let buildCommand = `docker build -t ${image.name}:${image.tag || "latest"}`;
+
+                    // Add build arguments if specified
+                    if (image.buildArgs) {
+                        Object.entries(image.buildArgs).forEach(([key, value]) => {
+                            buildCommand += ` --build-arg ${key}=${value}`;
+                        });
+                    }
+
+                    // Add dockerfile path if specified, using OS-specific path handling
+                    if (image.dockerfile) {
+                        const dockerfilePath = image.system === 'windows'
+                            ? image.dockerfile.replace(/\//g, '\\')
+                            : image.dockerfile;
+                        buildCommand += ` -f ${dockerfilePath}`;
+                    }
+
+                    // Add context path with proper escaping based on OS
+                    const contextPath = image.system === 'windows'
+                        ? image.path.replace(/\//g, '\\')
+                        : image.path;
+                    buildCommand += ` "${contextPath}"`;
+
+                    // Execute build
+                    const result = await runCommand(buildCommand);
+
+                    const buildTime = Date.now() - startTime;
+                    logInfo(`Successfully built image ${image.name}`, {
+                        buildTime: `${buildTime}ms`,
+                        size: await getImageSize(image.name),
+                        system: image.system
+                    });
+
+                    return {
+                        imageName: image.name,
+                        success: true,
+                        output: result.stdout,
+                        buildTime,
+                    };
+                } else {
+                    // Remove image
+                    logDebug(`Removing image ${image.name}`);
+
+                    const imageTag = image.tag || "latest";
+                    const removeCommand = `docker rmi ${image.name}:${imageTag}`;
+
+                    const result = await runCommand(removeCommand);
+
+                    const removeTime = Date.now() - startTime;
+                    logInfo(`Successfully removed image ${image.name}:${imageTag}`, {
+                        removeTime: `${removeTime}ms`,
+                        system: image.system
+                    });
+
+                    return {
+                        imageName: image.name,
+                        success: true,
+                        output: result.stdout,
+                        buildTime: removeTime,
+                    };
                 }
-
-                // Add dockerfile path if specified
-                if (image.dockerfile) {
-                    buildCommand += ` -f ${image.dockerfile}`;
-                }
-
-                buildCommand += ` "${normalizedPath}"`;
-
-                // Execute build
-                const result = await runCommand(buildCommand);
-
-                const buildTime = Date.now() - startTime;
-                logInfo(`Successfully built image ${image.name}`, {
-                    buildTime: `${buildTime}ms`,
-                    size: await getImageSize(image.name),
-                });
-
-                return {
-                    imageName: image.name,
-                    success: true,
-                    output: result.stdout,
-                    buildTime,
-                };
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : "Unknown error";
-                logError(`Failed to build image ${image.name}`, error instanceof Error ? error : undefined, {
-                    path: normalizedPath,
-                    buildTime: `${Date.now() - startTime}ms`,
+                const operation = type === 'create' ? 'build' : 'remove';
+                logError(`Failed to ${operation} image ${image.name}`, error instanceof Error ? error : undefined, {
+                    path: type === 'create' ? image.path : undefined,
+                    operationTime: `${Date.now() - startTime}ms`,
+                    system: image.system
                 });
 
                 return {
@@ -136,22 +168,24 @@ export const createDockerImages = async (
             }
         });
 
-        // Execute all builds in parallel
-        const results = await Promise.all(buildPromises);
+        // Execute all operations in parallel
+        const results = await Promise.all(operationPromises);
 
         // Log summary
         const successful = results.filter((r) => r.success).length;
         const failed = results.filter((r) => !r.success).length;
+        const operation = type === 'create' ? 'build' : 'removal';
 
-        logInfo("Docker build summary", {
+        logInfo(`Docker ${operation} summary`, {
             total: results.length,
             successful,
-            failed,
+            failed
         });
 
         return results;
     } catch (error) {
-        logError("Fatal error during Docker image creation", error instanceof Error ? error : new Error("Unknown error"));
+        const operation = type === 'create' ? 'creation' : 'removal';
+        logError(`Fatal error during Docker image ${operation}`, error instanceof Error ? error : new Error("Unknown error"));
         throw error;
     }
 };
@@ -166,7 +200,6 @@ async function getImageSize(imageName: string): Promise<string> {
     }
 }
 
-// Export additional utility functions
 export const dockerUtils = {
     validatePath,
     checkDockerDaemon,

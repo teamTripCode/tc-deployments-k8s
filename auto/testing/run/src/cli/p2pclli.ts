@@ -2,9 +2,7 @@ import inquirer from 'inquirer';
 import { deployNodes } from '../services/kubernetes';
 import { AdmindeployChain } from '../controllers/deploymentController';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
-
-// Define menu action types
-type MenuAction = 'Desplegar Red P2P' | 'Eliminar Red P2P' | 'Estado de Red P2P' | 'Salir';
+import { MenuAction } from './types';
 
 const port = process.env.PORT || 3000;
 

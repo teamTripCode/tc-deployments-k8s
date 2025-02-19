@@ -2,58 +2,8 @@ import { runCommand } from './shell';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import path from 'path';
 import fs from 'fs/promises';
-
-export type TypeAction = 'create' | 'remove';
-
-interface KubernetesResource {
-    name: string;
-    path: string;
-    type: 'deployment' | 'service' | 'configmap';
-    namespace?: string;
-}
-
-interface DeploymentResult {
-    resource: string;
-    success: boolean;
-    action: string;
-    error?: Error;
-    output?: string;
-    timestamp: Date;
-}
-
-// Configuration
-const KUBERNETES_RESOURCES: KubernetesResource[] = [
-    {
-        name: 'seed-node-deployment',
-        path: '../../../../../seed/seed-node-deployment.yaml',
-        type: 'deployment'
-    },
-    {
-        name: 'seed-node-service',
-        path: '../../../../../seed/seed-node-service.yaml',
-        type: 'service'
-    },
-    {
-        name: 'validator-node-deployment',
-        path: '../../../../../validator/validator-node-deployment.yaml',
-        type: 'deployment'
-    },
-    {
-        name: 'validator-node-service',
-        path: '../../../../../validator/validator-node-service.yaml',
-        type: 'service'
-    },
-    {
-        name: 'redis-configmap',
-        path: '../../../../../redis/redis-configmap.yaml',
-        type: 'configmap'
-    },
-    {
-        name: 'redis-service',
-        path: '../../../../../redis/redis-service.yaml',
-        type: 'service'
-    }
-];
+import { DeploymentResult, TypeAction } from './types';
+import { KUBERNETES_RESOURCES } from './config';
 
 // Helper functions
 async function validateKubernetesConnection(): Promise<boolean> {

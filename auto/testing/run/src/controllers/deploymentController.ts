@@ -1,12 +1,13 @@
-import { createDockerImages } from '../services/docker';
-import { deployNodes, TypeAction } from '../services/kubernetes';
+import { ManageDockerImages } from '../services/docker';
+import { deployNodes } from '../services/kubernetes';
+import { TypeAction } from '../services/types';
 
 export const AdmindeployChain = async (type: TypeAction) => {
   try {
     if (type !== 'create' && type !== 'remove') throw new Error('type is incorrect');
 
     // Primero, creamos las imágenes Docker
-    await createDockerImages();
+    await ManageDockerImages(type);
     
     // Luego, desplegamos los nodos y servicios de Kubernetes
     console.log('Desplegando red P2P...');

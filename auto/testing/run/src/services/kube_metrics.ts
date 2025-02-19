@@ -5,14 +5,14 @@ import {
     V1Service,
     V1Deployment,
     V1ServicePort,
-    V1Node,
-    V1Namespace,
     NetworkingV1Api,
     CustomObjectsApi,
-    V1PersistentVolumeClaim,
-    V1Ingress,
     V1ConfigMap,
     V1Secret,
+    V1Node,
+    V1Namespace,
+    V1PersistentVolumeClaim,
+    V1Ingress,
 } from '@kubernetes/client-node';
 import kc from '../config/kubernetesConfig';
 
@@ -41,7 +41,7 @@ export const getPods = async () => {
 export const getPodDetails = async (namespace: string, podName: string) => {
     try {
         const result = await k8sCoreApi.readNamespacedPod(podName, namespace);
-        const pod = result.body;
+        const pod = result;
         return {
             name: pod.metadata?.name,
             namespace: pod.metadata?.namespace,

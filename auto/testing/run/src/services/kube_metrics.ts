@@ -13,6 +13,7 @@ import {
     V1Namespace,
     V1PersistentVolumeClaim,
     V1Ingress,
+    ApisApi,
 } from '@kubernetes/client-node';
 import kc from '../config/kubernetesConfig';
 
@@ -21,6 +22,7 @@ const k8sCoreApi = kc.makeApiClient(CoreV1Api);
 const k8sAppsApi = kc.makeApiClient(AppsV1Api);
 const k8sNetworkingApi = kc.makeApiClient(NetworkingV1Api);
 const k8sCustomApi = kc.makeApiClient(CustomObjectsApi);
+const apisApi = kc.makeApiClient(ApisApi);
 
 // Función para obtener todos los pods
 export const getPods = async () => {
@@ -38,9 +40,12 @@ export const getPods = async () => {
 };
 
 // Función para obtener detalles de un pod específico
-export const getPodDetails = async (namespace: string, podName: string) => {
+export const getPodDetails = async (
+    namespace: string,
+    podName: string,
+) => {
     try {
-        const result = await k8sCoreApi.readNamespacedPod(podName, namespace);
+        const result = await k8sCoreApi.readNamespacedPod({ name: podName, namespace });
         const pod = result;
         return {
             name: pod.metadata?.name,
@@ -96,7 +101,10 @@ export const getServices = async () => {
 // Función para obtener detalles de un servicio específico
 export const getServiceDetails = async (namespace: string, serviceName: string) => {
     try {
-        const result = await k8sCoreApi.readNamespacedService(serviceName, namespace);
+        const result = await k8sCoreApi.readNamespacedService({
+            name: serviceName,
+            namespace,
+        });
         const service = result;
         return {
             name: service.metadata?.name,
@@ -145,7 +153,7 @@ export const getDeployments = async () => {
 // Función para obtener detalles de un deployment específico
 export const getDeploymentDetails = async (namespace: string, deploymentName: string) => {
     try {
-        const result = await k8sAppsApi.readNamespacedDeployment(deploymentName, namespace);
+        const result = await k8sAppsApi.readNamespacedDeployment({ name: deploymentName, namespace });
         const deployment = result;
         return {
             name: deployment.metadata?.name,
@@ -235,13 +243,13 @@ export const getNodes = async () => {
 // Función para obtener detalles de un nodo específico
 export const getNodeDetails = async (nodeName: string) => {
     try {
-        const result = await k8sCoreApi.readNode(nodeName);
+        const result = await k8sCoreApi.readNode({ name: nodeName });
         const node = result;
 
         // Obtener pods que se ejecutan en este nodo
-        const podsResult = await k8sCoreApi.listPodForAllNamespaces(
-            undefined, undefined, `spec.nodeName=${nodeName}`
-        );
+        const podsResult = await k8sCoreApi.listPodForAllNamespaces({
+            fieldSelector: `spec.nodeName=${nodeName}`
+        });
 
         return {
             name: node.metadata?.name,
@@ -296,13 +304,13 @@ export const getNamespaceResources = async (namespace: string) => {
             pvcsResult,
             ingressesResult
         ] = await Promise.all([
-            k8sCoreApi.listNamespacedPod(namespace),
-            k8sCoreApi.listNamespacedService(namespace),
-            k8sAppsApi.listNamespacedDeployment(namespace),
-            k8sCoreApi.listNamespacedConfigMap(namespace),
-            k8sCoreApi.listNamespacedSecret(namespace),
-            k8sCoreApi.listNamespacedPersistentVolumeClaim(namespace),
-            k8sNetworkingApi.listNamespacedIngress(namespace)
+            k8sCoreApi.listNamespacedPod({ namespace }),
+            k8sCoreApi.listNamespacedService({ namespace }),
+            k8sAppsApi.listNamespacedDeployment({ namespace }),
+            k8sCoreApi.listNamespacedConfigMap({ namespace }),
+            k8sCoreApi.listNamespacedSecret({ namespace }),
+            k8sCoreApi.listNamespacedPersistentVolumeClaim({ namespace }),
+            k8sNetworkingApi.listNamespacedIngress({ namespace })
         ]);
 
         return {
@@ -439,9 +447,9 @@ export const getMinikubeClusters = async () => {
 export const getResourceUsage = async () => {
     try {
         // Verificar si metrics API está disponible
-        const apiGroups = await k8sCoreApi.getAPIVersions();
-        const hasMetricsAPI = apiGroups.body.groups.some(
-            group => group.name === 'metrics.k8s.io'
+        const apiGroups = await apisApi.getAPIVersions();
+        const hasMetricsAPI = apiGroups.groups.some(
+            (group: { name: string }) => group.name === 'metrics.k8s.io'
         );
 
         if (!hasMetricsAPI) {
@@ -449,18 +457,18 @@ export const getResourceUsage = async () => {
         }
 
         // Obtener métricas de nodos
-        const nodeMetrics = await k8sCustomApi.listClusterCustomObject(
-            'metrics.k8s.io',
-            'v1beta1',
-            'nodes'
-        );
+        const nodeMetrics = await k8sCustomApi.listClusterCustomObject({
+            group: 'metrics.k8s.io',
+            version: 'v1beta1',
+            plural: 'nodes',
+        })
 
         // Obtener métricas de pods
-        const podMetrics = await k8sCustomApi.listClusterCustomObject(
-            'metrics.k8s.io',
-            'v1beta1',
-            'pods'
-        );
+        const podMetrics = await k8sCustomApi.listClusterCustomObject({
+            group: 'metrics.k8s.io',
+            version: 'v1beta1',
+            plural: 'pods',
+        })
 
         return {
             nodes: (nodeMetrics as any).body.items.map((item: any) => ({
@@ -488,7 +496,7 @@ export const getClusterEvents = async (namespace?: string) => {
     try {
         let events;
         if (namespace) {
-            events = await k8sCoreApi.listNamespacedEvent(namespace);
+            events = await k8sCoreApi.listNamespacedEvent({ namespace });
         } else {
             events = await k8sCoreApi.listEventForAllNamespaces();
         }
@@ -565,12 +573,12 @@ export const getClusterSummary = async () => {
                 pods: pods.length,
                 deployments: deployments.length,
                 services: services.length,
-                persistentVolumeClaims: pvcs.length
+                persistentVolumeClaims: pvcs.length,
             },
             capacity: {
                 cpu: totalResources.cpu,
                 memoryGi: Math.round(totalResources.memoryGi * 100) / 100,
-                pods: totalResources.pods
+                pods: totalResources.pods,
             },
             topNamespaces: namespaces
                 .map(ns => ({

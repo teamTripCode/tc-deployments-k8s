@@ -3,52 +3,6 @@ import { logInfo, logError, logDebug } from "../utils/logger";
 import { BuildResult, DockerImage, SystemType, TypeAction } from "./types";
 import { PathsDockers } from "./config";
 
-// Helper to process Windows paths correctly
-const processWindowsPath = (windowsPath: string): string => {
-    // Replace single backslashes with double backslashes for Windows paths
-    // This ensures they are properly escaped in strings
-    return windowsPath.replace(/\\/g, '\\\\');
-};
-
-// Helper to validate path exists based on OS
-const validatePath = async (imagePath: string, system: SystemType): Promise<boolean> => {
-    try {
-        let pathToCheck = imagePath;
-        
-        // Process Windows paths properly
-        if (system === 'windows') {
-            pathToCheck = processWindowsPath(imagePath);
-        }
-        
-        if (system === 'linux') {
-            await runCommand(`test -d "${pathToCheck}" || exit 1`);
-        } else {
-            // Windows command to check if directory exists
-            // Use CMD syntax with escaped quotes
-            await runCommand(`if not exist "${pathToCheck}" exit 1`);
-        }
-        return true;
-    } catch (error) {
-        logError(`Path validation failed for ${imagePath}`, error instanceof Error ? error : undefined);
-        return false;
-    }
-};
-
-// Helper to check if Docker is running
-const checkDockerDaemon = async (system: SystemType): Promise<boolean> => {
-    try {
-        if (system === 'linux') {
-            await runCommand("systemctl is-active docker");
-        } else {
-            // Windows command to check Docker service
-            await runCommand("docker info");
-        }
-        return true;
-    } catch {
-        return false;
-    }
-};
-
 // Main function to manage Docker images
 export const ManageDockerImages = async (
     type: TypeAction,
@@ -189,6 +143,54 @@ export const ManageDockerImages = async (
         throw error;
     }
 };
+
+// Helper to process Windows paths correctly
+const processWindowsPath = (windowsPath: string): string => {
+    // Replace single backslashes with double backslashes for Windows paths
+    // This ensures they are properly escaped in strings
+    return windowsPath.replace(/\\/g, '\\\\');
+};
+
+// Helper to validate path exists based on OS
+const validatePath = async (imagePath: string, system: SystemType): Promise<boolean> => {
+    try {
+        let pathToCheck = imagePath;
+
+        // Process Windows paths properly
+        if (system === 'windows') {
+            pathToCheck = processWindowsPath(imagePath);
+        }
+
+        if (system === 'linux') {
+            await runCommand(`test -d "${pathToCheck}" || exit 1`);
+        } else {
+            // Windows command to check if directory exists
+            // Use CMD syntax with escaped quotes
+            await runCommand(`if not exist "${pathToCheck}" exit 1`);
+        }
+        return true;
+    } catch (error) {
+        logError(`Path validation failed for ${imagePath}`, error instanceof Error ? error : undefined);
+        return false;
+    }
+};
+
+// Helper to check if Docker is running
+const checkDockerDaemon = async (system: SystemType): Promise<boolean> => {
+    try {
+        if (system === 'linux') {
+            await runCommand("systemctl is-active docker");
+        } else {
+            // Windows command to check Docker service
+            await runCommand("docker info");
+        }
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+
 
 // Helper to get image size
 async function getImageSize(imageName: string): Promise<string> {

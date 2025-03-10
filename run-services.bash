@@ -20,30 +20,30 @@ docker push foultrip/full-node-tripcode:latest
 docker push foultrip/api-node-tripcode:latest
 
 echo "===== Creando ConfigMaps y Servicios ====="
-kubectl apply -f redis/redis-configmap.yaml
-kubectl apply -f redis/redis-service.yaml
+kubectl apply -f ./k8s/redis/redis-configmap.yaml
+kubectl apply -f ./k8s/redis/redis-service.yaml
 
 echo "===== Creando volúmenes persistentes ====="
-kubectl apply -f storage/persistent-volumes.yaml
+kubectl apply -f ./k8s/storage/persistent-volumes.yaml
 
 echo "===== Desplegando nodos semilla ====="
-kubectl apply -f seed/seed-node-deployment.yaml
-kubectl apply -f seed/seed-node-service.yaml
+kubectl apply -f ./k8s/seed/seed-node-deployment.yaml
+kubectl apply -f ./k8s/seed/seed-node-service.yaml
 
 echo "===== Esperando a que los nodos semilla estén listos ====="
 kubectl wait --for=condition=available deployment/seed-node --timeout=300s
 
 echo "===== Desplegando nodos validadores ====="
-kubectl apply -f validator/validator-node-deployment.yaml
-kubectl apply -f validator/validator-node-service.yaml
+kubectl apply -f ./k8s/validator/validator-node-deployment.yaml
+kubectl apply -f ./k8s/validator/validator-node-service.yaml
 
 echo "===== Desplegando nodos completos ====="
-kubectl apply -f full/full-node-deployment.yaml
-kubectl apply -f full/full-node-service.yaml
+kubectl apply -f ./k8s/full/full-node-deployment.yaml
+kubectl apply -f ./k8s/full/full-node-service.yaml
 
 echo "===== Desplegando nodos API ====="
-kubectl apply -f api/api-node-deployment.yaml
-kubectl apply -f api/api-node-service.yaml
+kubectl apply -f ./k8s/api/api-node-deployment.yaml
+kubectl apply -f ./k8s/api/api-node-service.yaml
 
 echo "===== Desplegando servicios auxiliares ====="
 kubectl apply -f auxiliary/monitoring-deployment.yaml

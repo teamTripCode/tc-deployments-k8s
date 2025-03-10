@@ -11,11 +11,11 @@ spec:
   ports:
     - name: http
       protocol: TCP
-      port: 3003
+      port: 3002
       targetPort: 8080 # Puerto HTTP expuesto
       nodePort: 30004
     - name: ws
       protocol: TCP
-      port: 4003
+      port: 4002
       targetPort: 8081 # Puerto WebSocket expuesto
-      nodePort: 30005
+      nodePort: 30002

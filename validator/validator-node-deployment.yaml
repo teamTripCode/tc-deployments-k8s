@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
         - name: tc-validator-node
-          image: validator-node-tripcode:latest
+          image: foultrip/validator-node-tripcode:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
               name: http

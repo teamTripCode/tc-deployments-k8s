@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
         - name: tc-api-node
-          image: api-node-tripcode:latest
+          image: foultrip/api-node-tripcode:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
               name: http

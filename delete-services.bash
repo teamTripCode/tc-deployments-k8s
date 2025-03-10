@@ -6,27 +6,27 @@ kubectl delete -f auxiliary/logging-deployment.yaml
 kubectl delete -f auxiliary/monitoring-deployment.yaml
 
 echo "===== Eliminando nodos API ====="
-kubectl delete -f api/api-node-service.yaml
-kubectl delete -f api/api-node-deployment.yaml
+kubectl delete -f ./k8s/api/api-node-service.yaml
+kubectl delete -f ./k8s/api/api-node-deployment.yaml
 
 echo "===== Eliminando nodos completos ====="
-kubectl delete -f full/full-node-service.yaml
-kubectl delete -f full/full-node-deployment.yaml
+kubectl delete -f ./k8s/full/full-node-service.yaml
+kubectl delete -f ./k8s/full/full-node-deployment.yaml
 
 echo "===== Eliminando nodos validadores ====="
-kubectl delete -f validator/validator-node-service.yaml
-kubectl delete -f validator/validator-node-deployment.yaml
+kubectl delete -f ./k8s/validator/validator-node-service.yaml
+kubectl delete -f ./k8s/validator/validator-node-deployment.yaml
 
 echo "===== Eliminando nodos semilla ====="
-kubectl delete -f seed/seed-node-service.yaml
-kubectl delete -f seed/seed-node-deployment.yaml
+kubectl delete -f ./k8s/seed/seed-node-service.yaml
+kubectl delete -f ./k8s/seed/seed-node-deployment.yaml
 
 echo "===== Eliminando volúmenes persistentes ====="
-kubectl delete -f storage/persistent-volumes.yaml
+kubectl delete -f ./k8s/storage/persistent-volumes.yaml
 
 echo "===== Eliminando ConfigMaps y Servicios ====="
-kubectl delete -f redis/redis-service.yaml
-kubectl delete -f redis/redis-configmap.yaml
+kubectl delete -f ./k8s/redis/redis-service.yaml
+kubectl delete -f ./k8s/redis/redis-configmap.yaml
 
 echo "===== Verificando que todos los recursos se han eliminado ====="
 kubectl get pods

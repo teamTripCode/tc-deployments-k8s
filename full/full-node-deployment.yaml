@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
         - name: tc-full-node
-          image: full-node-tripcode:latest
+          image: foultrip/full-node-tripcode:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
               name: http

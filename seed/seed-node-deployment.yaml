@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
         - name: tc-seed-node
-          image: seed-node-tripcode:latest
+          image: foultrip/seed-node-tripcode:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
               name: http

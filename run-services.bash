@@ -1,15 +1,23 @@
 #!/bin/bash
 # Script para construir imágenes y desplegar los componentes en el orden correcto
 
-echo "===== Construyendo imágenes Docker ====="
-# Construir imagen del nodo semilla
-docker build -t seed-node-tripcode:latest ../seed-node-tripcode
-# Construir imagen del nodo validador
-docker build -t validator-node-tripcode:latest ../validator-node-tripcode
-# Construir imagen del nodo completo
-docker build -t full-node-tripcode:latest ../full-node-tripcode
-# Construir imagen del nodo API
-docker build -t api-node-tripcode:latest ../api-node-tripcode
+echo "==== Build images ===="
+docker build -t seed-node-tripcode:latest ./seed-node-tripcode
+docker build -t validator-node-tripcode:latest ./validator-node-tripcode
+docker build -t full-node-tripcode:latest ./complete-node-tripcode
+docker build -t api-node-tripcode:latest ./api-node-tripcode
+
+echo "==== Tag images for Docker Hub (replace "yourusername" with your actual Docker Hub username) ===="
+docker tag seed-node-tripcode:latest foultrip/seed-node-tripcode:latest
+docker tag validator-node-tripcode:latest foultrip/validator-node-tripcode:latest
+docker tag full-node-tripcode:latest foultrip/full-node-tripcode:latest
+docker tag api-node-tripcode:latest foultrip/api-node-tripcode:latest
+
+echo "==== Push images to Docker Hub (you need to be logged in with 'docker login') ===="
+docker push foultrip/seed-node-tripcode:latest
+docker push foultrip/validator-node-tripcode:latest
+docker push foultrip/full-node-tripcode:latest
+docker push foultrip/api-node-tripcode:latest
 
 echo "===== Creando ConfigMaps y Servicios ====="
 kubectl apply -f redis/redis-configmap.yaml

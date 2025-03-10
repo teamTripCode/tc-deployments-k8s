@@ -3,19 +3,20 @@ kind: Service
 metadata:
   name: full-node-service
   labels:
-    app: seed-node
+    app: full-node
+    cluster: full-nodes
 spec:
-  type: NodePort # Permite acceso desde fuera del clúster
+  type: NodePort
   selector:
     app: full-node
   ports:
     - name: http
       protocol: TCP
       port: 3002
-      targetPort: 8080 # Puerto HTTP expuesto
+      targetPort: 8080
       nodePort: 30004
     - name: ws
       protocol: TCP
       port: 4002
-      targetPort: 8081 # Puerto WebSocket expuesto
-      nodePort: 30002
+      targetPort: 8081
+      nodePort: 30005

@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: validator-node
+  labels:
+    cluster: validators
 spec:
   replicas: 1
   selector:
@@ -11,14 +13,16 @@ spec:
     metadata:
       labels:
         app: validator-node
+        cluster: validators
     spec:
       containers:
-        # Contenedor de la aplicación del nodo validador
         - name: tc-validator-node
-          image: validator-node-tripcode:latest # Reemplaza con tu imagen Docker
+          image: validator-node-tripcode:latest
           ports:
-            - containerPort: 8080 # Puerto HTTP
-            - containerPort: 8081 # Puerto WebSocket
+            - containerPort: 8080
+              name: http
+            - containerPort: 8081
+              name: ws
           env:
             - name: NODE_ENV
               value: "production"
@@ -27,19 +31,21 @@ spec:
             - name: WS_PORT
               value: "8081"
             - name: SEED_NODES
-              value: "http://seed-node-service:3000" # Dirección del nodo semilla
+              value: "http://seed-node-service:3000"
             - name: REDIS_HOST
-              value: "localhost" # Redis está en el mismo pod
+              value: "localhost"
             - name: REDIS_PORT
               value: "6379"
           resources:
             requests:
-              memory: "256Mi" # Memoria solicitada
-              cpu: "250m" # CPU solicitada
+              memory: "256Mi"
+              cpu: "250m"
             limits:
-              memory: "512Mi" # Memoria máxima
-              cpu: "500m" # CPU máxima
-        # Contenedor de Redis
+              memory: "512Mi"
+              cpu: "500m"
+          volumeMounts:
+            - name: data-volume
+              mountPath: /app/data
         - name: redis
           image: redis:alpine
           ports:
@@ -48,14 +54,21 @@ spec:
             - name: redis-config
               mountPath: /usr/local/etc/redis/redis.conf
               subPath: redis.conf
+            - name: redis-data
+              mountPath: /data
           resources:
             requests:
-              memory: "128Mi" # Memoria solicitada
-              cpu: "100m" # CPU solicitada
+              memory: "128Mi"
+              cpu: "100m"
             limits:
-              memory: "256Mi" # Memoria máxima
-              cpu: "200m" # CPU máxima
+              memory: "256Mi"
+              cpu: "200m"
       volumes:
         - name: redis-config
           configMap:
             name: redis-config
+        - name: redis-data
+          emptyDir: {}
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: validator-node-pvc

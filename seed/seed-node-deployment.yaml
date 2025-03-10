@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: seed-node
+  labels:
+    cluster: seed-nodes
 spec:
   replicas: 1
   selector:
@@ -11,6 +13,7 @@ spec:
     metadata:
       labels:
         app: seed-node
+        cluster: seed-nodes
     spec:
       containers:
         - name: tc-seed-node
@@ -40,7 +43,10 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
-        - name: redis-seed
+          volumeMounts:
+            - name: data-volume
+              mountPath: /app/data
+        - name: redis
           image: redis:alpine
           ports:
             - containerPort: 6379
@@ -48,6 +54,8 @@ spec:
             - name: redis-config
               mountPath: /usr/local/etc/redis/redis.conf
               subPath: redis.conf
+            - name: redis-data
+              mountPath: /data
           resources:
             requests:
               memory: "128Mi"
@@ -59,3 +67,8 @@ spec:
         - name: redis-config
           configMap:
             name: redis-config
+        - name: redis-data
+          emptyDir: {}
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: seed-node-pvc

@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logging
+  labels:
+    layer: auxiliary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logging
+  template:
+    metadata:
+      labels:
+        app: logging
+        layer: auxiliary
+    spec:
+      containers:
+        - name: fluentd
+          image: fluent/fluentd:latest
+          ports:
+            - containerPort: 24224
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "400m"
+        - name: elasticsearch
+          image: elasticsearch:7.10.1
+          ports:
+            - containerPort: 9200
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          env:
+            - name: discovery.type
+              value: single-node
+        - name: kibana
+          image: kibana:7.10.1
+          ports:
+            - containerPort: 5601
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "400m"

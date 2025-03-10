@@ -3,19 +3,20 @@ kind: Service
 metadata:
   name: validator-node-service
   labels:
-    app: seed-node
+    app: validator-node
+    cluster: validators
 spec:
-  type: NodePort # Permite acceso desde fuera del clúster
+  type: NodePort
   selector:
     app: validator-node
   ports:
     - name: http
       protocol: TCP
       port: 3001
-      targetPort: 8080 # Puerto HTTP expuesto
+      targetPort: 8080
       nodePort: 30002
     - name: ws
       protocol: TCP
       port: 4001
-      targetPort: 8081 # Puerto WebSocket expuesto
+      targetPort: 8081
       nodePort: 30003

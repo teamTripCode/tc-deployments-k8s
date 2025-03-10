@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-node
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-node
+  template:
+    metadata:
+      labels:
+        app: api-node
+    spec:
+      containers:
+        # Contenedor de la aplicación del nodo validador
+        - name: tc-api-node
+          image: api-node-tripcode:latest # Reemplaza con tu imagen Docker
+          ports:
+            - containerPort: 8080 # Puerto HTTP
+            - containerPort: 8081 # Puerto WebSocket
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: HTTP_PORT
+              value: "8080"
+            - name: WS_PORT
+              value: "8081"
+            - name: SEED_NODES
+              value: "http://seed-node-service:3000" # Dirección del nodo semilla
+            - name: REDIS_HOST
+              value: "localhost" # Redis está en el mismo pod
+            - name: REDIS_PORT
+              value: "6379"
+          resources:
+            requests:
+              memory: "256Mi" # Memoria solicitada
+              cpu: "250m" # CPU solicitada
+            limits:
+              memory: "512Mi" # Memoria máxima
+              cpu: "500m" # CPU máxima
+        # Contenedor de Redis
+        - name: redis
+          image: redis:alpine
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: redis-config
+              mountPath: /usr/local/etc/redis/redis.conf
+              subPath: redis.conf
+          resources:
+            requests:
+              memory: "128Mi" # Memoria solicitada
+              cpu: "100m" # CPU solicitada
+            limits:
+              memory: "256Mi" # Memoria máxima
+              cpu: "200m" # CPU máxima
+      volumes:
+        - name: redis-config
+          configMap:
+            name: redis-config

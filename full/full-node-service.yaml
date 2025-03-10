@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: full-node-service
+  labels:
+    app: seed-node
+spec:
+  type: NodePort # Permite acceso desde fuera del clúster
+  selector:
+    app: full-node
+  ports:
+    - name: http
+      protocol: TCP
+      port: 3003
+      targetPort: 8080 # Puerto HTTP expuesto
+      nodePort: 30004
+    - name: ws
+      protocol: TCP
+      port: 4003
+      targetPort: 8081 # Puerto WebSocket expuesto
+      nodePort: 30005

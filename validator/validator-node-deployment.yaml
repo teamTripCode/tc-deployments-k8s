@@ -15,6 +15,23 @@ spec:
         app: validator-node
         cluster: validators
     spec:
+      initContainers:
+      - name: cert-generator
+        image: alpine:latest
+        command:
+          - sh
+          - -c
+          - |
+            apk add --no-cache openssl
+            mkdir -p /certs
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+              -keyout /certs/private-key.pem \
+              -out /certs/public-key.pem \
+              -subj "/CN=localhost/O=TripCode/C=US"
+            chmod 644 /certs/*.pem
+        volumeMounts:
+        - name: certs-volume
+          mountPath: /certs
       containers:
         - name: tc-validator-node
           image: foultrip/validator-node-tripcode:latest
@@ -37,6 +54,8 @@ spec:
               value: "localhost"
             - name: REDIS_PORT
               value: "6379"
+            - name: CERTS_PATH
+              value: "/app/certs/tls"
           resources:
             requests:
               memory: "256Mi"
@@ -47,6 +66,8 @@ spec:
           volumeMounts:
             - name: data-volume
               mountPath: /app/data
+            - name: certs-volume
+              mountPath: /app/certs/tls
         - name: redis
           image: redis:alpine
           ports:
@@ -73,3 +94,5 @@ spec:
         - name: data-volume
           persistentVolumeClaim:
             claimName: validator-node-pvc
+        - name: certs-volume
+          emptyDir: {}

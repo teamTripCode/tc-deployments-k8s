@@ -15,6 +15,33 @@ spec:
         app: seed-node
         cluster: seed-nodes
     spec:
+      initContainers:
+      - name: cert-generator
+        image: alpine:latest
+        command:
+        - sh
+        - -c
+        - |
+          apk add --no-cache openssl
+          mkdir -p /certs
+          # Generate CA certificate
+          openssl genrsa -out /certs/ca-key.pem 2048
+          openssl req -x509 -new -nodes -key /certs/ca-key.pem -sha256 -days 365 \
+            -out /certs/ca-cert.pem -subj "/CN=TripCodeCA/O=TripCode/C=US"
+          
+          # Generate server certificates signed by the CA
+          openssl genrsa -out /certs/private-key.pem 2048
+          openssl req -new -key /certs/private-key.pem \
+            -out /certs/server.csr -subj "/CN=localhost/O=TripCode/C=US"
+          openssl x509 -req -in /certs/server.csr -CA /certs/ca-cert.pem \
+            -CAkey /certs/ca-key.pem -CAcreateserial -out /certs/public-key.pem -days 365
+          
+          # Set permissions
+          chmod 644 /certs/*.pem
+          ls -la /certs
+        volumeMounts:
+        - name: certs-volume
+          mountPath: /certs
       containers:
         - name: tc-seed-node
           image: foultrip/seed-node-tripcode:latest
@@ -37,6 +64,8 @@ spec:
               value: "localhost"
             - name: REDIS_PORT
               value: "6379"
+            - name: CERTS_PATH
+              value: "/app/certs/tls"
           resources:
             requests:
               memory: "256Mi"
@@ -47,6 +76,8 @@ spec:
           volumeMounts:
             - name: data-volume
               mountPath: /app/data
+            - name: certs-volume
+              mountPath: /app/certs/tls
         - name: redis
           image: redis:alpine
           ports:
@@ -73,3 +104,5 @@ spec:
         - name: data-volume
           persistentVolumeClaim:
             claimName: seed-node-pvc
+        - name: certs-volume
+          emptyDir: {}
